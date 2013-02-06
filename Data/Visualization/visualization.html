@@ -1,0 +1,204 @@
+
+<!DOCTYPE html>
+<html>
+    
+    <head>
+        <script src="http://code.jquery.com/jquery-1.8.2.js"></script>
+        <script src="http://code.jquery.com/ui/1.9.0/jquery-ui.js"></script>
+        <link href="http://code.jquery.com/ui/1.10.0/themes/base/jquery-ui.css"
+        rel="stylesheet" type="text/css" />
+        <style>
+            html, body, #map_canvas {
+                margin: 0;
+                padding: 0;
+                height: 100%;
+            }
+        </style>
+        <script src="https://maps.googleapis.com/maps/api/js?sensor=false&libraries=visualization">
+            
+        </script>
+    </head>
+    
+    <body>
+        <div id="map_canvas"></div>
+        <div id="draggable-slider-year" class="ui-widget-content" style="position:absolute; 
+            top:60px; right:140px; z-index:2200; width:340px; height:70px; padding:3px;
+            font-size:12px; font-family:sans-serif;
+            border:2px solid;
+            background-color:rgba(129,170,240,0.70);">
+            <div style="font-size:16px; text-align:center;">CFI Snapshot Date: <span id="yearapp">2013 Jan</span>
+                <br>
+            </div>
+            <div id="slider-year" style="margin:11px;"></div>
+            <div style="position:relative; font-size:10px; font-family:sans-serif; margin-left:11px; top:-15px;"> <span style="display:inline-block;width: 12px;text-align:left;margin-right: 60px;">|<br />2013-01</span>
+
+                <span
+                style="display:inline-block;width: 243px;text-align:right;">|
+                    <br />2013-03</span>
+            </div>
+            <script>
+                var map;
+                var cfidata;
+                var markersArray = [],
+                    infoArray = [],
+                    eventArray = [];
+                var geocoder;
+                year_min = 1;
+
+                $(function () {
+                    $("#draggable-slider-year").draggable();
+                });
+
+                $(document).ready(function () {
+
+                    geocoder = new google.maps.Geocoder();
+                    var mapOptions = {
+                        zoom: 5,
+                        center: new google.maps.LatLng(37.09024, -95.712891),
+                        mapTypeId: google.maps.MapTypeId.ROADMAP
+                    };
+
+                    map = new google.maps.Map(document.getElementById('map_canvas'),
+                    mapOptions);
+
+                    // Create a script tag and set the USGS URL as the source.
+                    // Append this tag to the document's <head>.
+                    cfidata = document.createElement('script');
+                    cfidata.src = './sample1.json'; //script is executed because we defined cfi_callback earlier
+                    document.getElementsByTagName('head')[0].appendChild(cfidata);
+
+                    $("#slider-year").slider({
+                        values: [year_min],
+                        animate: "fast",
+                        min: 1,
+                        max: 3,
+                        step: 1,
+                        slide: function (event, ui) {
+                            if(ui.value == 1) {
+                                $("#yearapp").text('2013 Jan');
+                            } else if (ui.value == 2) {
+                                $("#yearapp").text('2013 Feb - NO DATA');
+                            } else {
+                                $("#yearapp").text('2013 Mar - NO DATA');
+                            }
+                            year_min = ui.value;
+                            document.getElementsByTagName('head')[0].removeChild(cfidata);
+                            deleteOverlays(); //delete the markers before updating                            
+                            cfidata = document.createElement('script');
+                            cfidata.src = './sample' + ui.value + '.json'; //script is executed because we defined cfi_callback earlier on
+                            document.getElementsByTagName('head')[0].appendChild(cfidata);                            
+                        }
+                    });
+                });
+
+                var infowindow = new google.maps.InfoWindow();
+                infoArray.push(infowindow);
+
+                window.cfi_callback = function (results) {
+                    for (var i = 0; i < results.features.length; i++) {
+                        var issue = results.features[i];
+                        var coords = issue.geometry.coordinates;
+                        var latLng = new google.maps.LatLng(coords[0], coords[1]);
+                        var marker = new google.maps.Marker({
+                            position: latLng,
+                            map: map,
+                            icon: getCircle(issue.properties.currently_raised, issue.properties.portal)
+                        });
+                        markersArray.push(marker);
+
+                        var contentString = '<div id="content">'+                            
+                            '<p>'+
+                            issue.properties.issuer+
+                            '</p>'+
+                            '<div id="bodyContent">'+
+                            'Raised: '+
+                            '$'+formatThousands(issue.properties.currently_raised)+'/$'+formatThousands(issue.properties.goal)+
+                            '</br>'+
+                            'Portal: '+
+                            issue.properties.portal+
+                            '</div>'+
+                            '</div>';
+
+                        // var infowindow = new google.maps.InfoWindow({
+                        //     content: contentString,
+                        // });
+
+                        var mouseoverhandle = listenMarker(marker, contentString); //why
+                        eventArray.push(mouseoverhandle);
+
+                        // var mouseouthandle = google.maps.event.addListener(marker, 'mouseout', function () {
+                        //     infowindow.close();
+                        // });
+                        // eventArray.push(mouseouthandle);
+                    }
+                }
+
+                function listenMarker (marker, content) {
+                // so marker is associated with the closure created for the listenMarker function call
+                    google.maps.event.addListener(marker, 'click', function() {
+                        infowindow.setContent(content);
+                        infowindow.open(map, this);
+                    });
+
+                    // google.maps.event.addListener(marker, 'click', function() {
+                    //     infowindow.close();
+                    // });
+                }
+
+                var colors = ['blue','green','red','yellow'];
+
+                function getCircle(amount, portal) {
+                    var color = (((portal.hashCode() % 4)+4)%4);
+                    return {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        //scale: amount / 10000,
+                        scale: Math.log(amount+1) * 1.5,
+                        fillColor: colors[color-1],
+                        fillOpacity: .3,
+                        strokeColor: 'white',
+                        strokeWeight: .5
+                    };
+                }
+
+                String.prototype.hashCode = function(){
+                    var hash = 0;
+                    if (this.length == 0) return hash;
+                    for (i = 0; i < this.length; i++) {
+                        char = this.charCodeAt(i);
+                        hash = ((hash<<5)-hash)+char;
+                        hash = hash & hash; // Convert to 32bit integer
+                    }
+                    return hash;
+                }
+
+                function formatThousands(x) {
+                    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                }
+
+                function deleteOverlays() {
+                    if (markersArray) {
+                        for (i in markersArray) {
+                            markersArray[i].setMap(null);
+                        }
+                        markersArray.length = 0;
+                    }
+
+                    if (infoArray) {
+                        for (i in infoArray) {
+                            infoArray[i].setMap(null);
+                        }
+                        infoArray.length = 0;
+                    }
+
+
+                    if (eventArray) {
+                        for (i in eventArray) {
+                            google.maps.event.removeListener(eventArray[i]);
+                        }
+                        eventArray.length = 0;
+                    }
+                }
+            </script>
+    </body>
+
+</html>
