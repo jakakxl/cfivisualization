@@ -4,7 +4,7 @@ from geopy import geocoders
 g = geocoders.Google()
 header = ['portal', 'issuer', 'location', 'status', 'goal', 'currently_raised', 'currency', 'latitude', 'longitude']
 
-with open('Jan2013_formatted.csv', 'r') as csv_readfile, open('Jan2013_formatted_latlngv2.csv', 'wb') as csv_writefile:
+with open('Jan2013_formatted.csv', 'r') as csv_readfile, open('Jan2013_formatted_with_latitude.csv', 'wb') as csv_writefile:
     read_handler = csv.DictReader(csv_readfile)
     write_handler = csv.DictWriter(csv_writefile, header)
     write_handler.writeheader()
