@@ -16,8 +16,8 @@ with open('Jan2013_formatted.csv', 'r') as csv_readfile, open('Jan2013_formatted
             row['latitude'] = lat
             row['longitude'] = lng
             write_handler.writerow(row)
-        except Exception as e:
+        except Exception as e: #geopy throws a lot of errors when the returned geocoding format is wrong, so write out original line
             print e
             write_handler.writerow(row)
 
-        time.sleep(1)
+        time.sleep(1) #google api rate limit
