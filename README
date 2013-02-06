@@ -1,0 +1,2 @@
+Data/data_output.php is for dumping the geojson data.
+Data/parse_cfdata.py is for parsing the raw cfi data.
